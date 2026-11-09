@@ -1,0 +1,11 @@
+# Lint and format policy for future standard-library tooling.
+target-version = "py39"
+line-length = 120
+extend-exclude = ["fixtures", "expected"]
+
+[lint]
+# Correctness-focused: pycodestyle errors and warnings, pyflakes, bugbear, imports.
+select = ["E", "F", "W", "B", "I"]
+
+[format]
+quote-style = "double"

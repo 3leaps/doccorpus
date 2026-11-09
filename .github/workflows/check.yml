@@ -1,0 +1,69 @@
+name: check
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  structure:
+    name: structure
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Prove required files and dirs
+        run: make structure
+  goneat:
+    name: format, lint (goneat)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      # The digest-pinned tools image bundles goneat, ruff, yamllint, yamlfmt,
+      # shfmt, actionlint, and checkmake; nothing is installed.
+      # yamllint disable-line rule:line-length
+      image: ghcr.io/fulmenhq/goneat-tools-runner-glibc:v0.5.9@sha256:412a315241a59fc0313f4e79f182f7f373a04f194174c61b439cf8ba26174d54
+      options: --user root
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Trust the container checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Show toolchain
+        run: |
+          goneat --version
+          ruff --version
+      - name: Record fixture bytes
+        run: |
+          if [ -d fixtures ] && [ "$(find fixtures -type f ! -name .gitkeep | wc -l)" -gt 0 ]; then
+            find fixtures -type f ! -name .gitkeep -exec sha256sum {} + | sort > "$RUNNER_TEMP/fixtures.before"
+          else
+            : > "$RUNNER_TEMP/fixtures.before"
+          fi
+      - name: Check formatting
+        run: make fmt-check
+      - name: Lint
+        run: make lint
+      - name: Prove formatting never rewrites fixtures
+        run: |
+          set -euo pipefail
+          make fmt
+          if [ -d fixtures ] && [ "$(find fixtures -type f ! -name .gitkeep | wc -l)" -gt 0 ]; then
+            find fixtures -type f ! -name .gitkeep -exec sha256sum {} + | sort > "$RUNNER_TEMP/fixtures.after"
+          else
+            : > "$RUNNER_TEMP/fixtures.after"
+          fi
+          diff "$RUNNER_TEMP/fixtures.before" "$RUNNER_TEMP/fixtures.after"
+          git diff --exit-code

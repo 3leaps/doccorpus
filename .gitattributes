@@ -1,0 +1,8 @@
+# Default: normalize ordinary text.
+* text=auto
+
+# Byte-exact trees: unset end-of-line conversion, clean/smudge
+# filters, ident expansion, and re-encoding. Document fixtures and
+# expected extracts must round-trip byte-for-byte.
+/fixtures/** -text -filter -ident -working-tree-encoding
+/expected/** -text -filter -ident -working-tree-encoding

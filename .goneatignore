@@ -1,0 +1,3 @@
+# Byte-exact corpus material: never format, lint, or rewrite.
+fixtures/**
+expected/**
